@@ -18,8 +18,19 @@
 #
 
 case node['platform']
-when 'ubuntu', 'debian'
+when 'debian'
   include_recipe 'apt'
+when 'ubuntu'
+  include_recipe 'apt'
+  if node['platform_version'].to_f == 14.04
+    apt_repository "ejabberd-rx22" do
+      uri "http://ppa.launchpad.net/rx22/ejabberd1407/ubuntu"
+      distribution node['lsb']['codename']
+      components ["main"]
+      keyserver "keyserver.ubuntu.com"
+      key "3E5EA079"
+    end
+  end
 when 'centos', 'redhat', 'amazon', 'scientific'
   include_recipe 'yum-epel::default'
 end
@@ -30,10 +41,25 @@ service "ejabberd" do
   action :enable
 end
 
-template "/etc/ejabberd/ejabberd.cfg" do
-  source "ejabberd.cfg.erb"
-  group 'ejabberd'
-  mode '755'
-  variables :jabber_domain => node['ejabberd']['jabber_domain']
-  notifies :restart, resources('service[ejabberd]')
+case node['platform']
+when 'ubuntu'
+  if node['platform_version'].to_f >= 14.04
+    template "/etc/ejabberd/ejabberd.yml" do
+      source "ejabberd.yml.erb"
+      owner 'ejabberd'
+      group 'ejabberd'
+      mode '640'
+      variables :jabber_domain => node['ejabberd']['jabber_domain']
+      notifies :restart, resources('service[ejabberd]')
+    end
+  else
+    template "/etc/ejabberd/ejabberd.cfg" do
+      source "ejabberd.cfg.erb"
+      owner 'ejabberd'
+      group 'ejabberd'
+      mode '640'
+      variables :jabber_domain => node['ejabberd']['jabber_domain']
+      notifies :restart, resources('service[ejabberd]')
+    end
+  end
 end
